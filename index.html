@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torre de Control · Asistente de triaje de alertas</title>
+<meta name="description" content="Prototipo académico: landing page con un agente conversacional construido en n8n para el triaje de alertas de un centro de control.">
+
+<!-- Estilos del widget de chat de n8n (se cargan ambas rutas; la que no exista se ignora) -->
+<link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@n8n/chat/style.css" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #050d1a;
+    --panel: #0a1628;
+    --panel-2: #0e1f38;
+    --line: #17365c;
+    --cyan: #22d3ee;
+    --cyan-dim: #0e7490;
+    --text: #dbeafe;
+    --muted: #8aa4c4;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --green: #4ade80;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    /* Tema del widget de chat de n8n */
+    --chat--color-primary: #0891b2;
+    --chat--color-primary-shade-50: #0e7490;
+    --chat--color-primary-shade-100: #155e75;
+    --chat--color-secondary: #0e7490;
+    --chat--color-secondary-shade-50: #155e75;
+    --chat--color-dark: #0a1628;
+    --chat--window--width: 400px;
+    --chat--window--height: 600px;
+    --chat--border-radius: 6px;
+    --chat--toggle--background: #22d3ee;
+    --chat--toggle--hover--background: #67e8f9;
+    --chat--toggle--active--background: #06b6d4;
+    --chat--toggle--color: #04121f;
+    --chat--toggle--size: 64px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image:
+      linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+  header.bar {
+    border-bottom: 1px solid var(--line);
+    background: rgba(5, 13, 26, 0.9);
+    position: sticky; top: 0; z-index: 5;
+  }
+  header.bar .wrap {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px; padding-bottom: 12px; gap: 12px;
+  }
+  .brand { font-family: var(--mono); font-size: 14px; letter-spacing: 0.12em; color: var(--cyan); }
+  .status { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); margin-right: 6px; box-shadow: 0 0 8px var(--green);
+  }
+
+  .hero { padding: 72px 0 56px; }
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    color: var(--cyan); border: 1px solid var(--cyan-dim); padding: 4px 10px; margin-bottom: 20px;
+  }
+  h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.12; margin: 0 0 18px; color: #fff; }
+  h1 span { color: var(--cyan); }
+  .lead { font-size: 18px; color: var(--muted); max-width: 640px; margin: 0 0 28px; }
+  .btn {
+    font-family: var(--mono); font-size: 14px; letter-spacing: 0.06em;
+    background: var(--cyan); color: #04121f; border: 0; padding: 14px 22px;
+    cursor: pointer; font-weight: 700;
+  }
+  .btn:hover { background: #67e8f9; }
+  .btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+  section { padding: 44px 0; border-top: 1px solid var(--line); }
+  h2 {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em;
+    color: var(--cyan); margin: 0 0 22px; text-transform: uppercase;
+  }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); padding: 20px; }
+  .card h3 { margin: 0 0 8px; font-size: 17px; color: #fff; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .num { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-bottom: 10px; }
+
+  .flow { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .step { background: var(--panel-2); border-left: 3px solid var(--cyan); padding: 14px 16px; }
+  .step b { display: block; font-family: var(--mono); font-size: 13px; color: var(--cyan); margin-bottom: 4px; }
+  .step span { font-size: 14px; color: var(--muted); }
+
+  .levels { display: grid; gap: 10px; }
+  .lvl {
+    display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); padding: 12px 16px;
+  }
+  .lvl code { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .lvl span { font-size: 15px; color: var(--muted); }
+  .c-red { color: var(--red); } .c-amber { color: var(--amber); } .c-green { color: var(--green); }
+
+  .ask { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ask button {
+    font-family: var(--sans); font-size: 14px; text-align: left;
+    background: transparent; color: var(--text); border: 1px solid var(--line);
+    padding: 10px 14px; cursor: pointer;
+  }
+  .ask button:hover { border-color: var(--cyan); color: var(--cyan); }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  .notice {
+    display: none; background: #3b1d0a; border: 1px solid var(--amber);
+    color: #fde68a; padding: 12px 16px; font-size: 14px; margin-top: 20px;
+  }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 110px; color: var(--muted); font-size: 13px; }
+  footer p { margin: 0 0 6px; }
+
+  @media (max-width: 520px) {
+    .hero { padding: 48px 0 40px; }
+    .lvl { grid-template-columns: 1fr; gap: 4px; }
+    .status { display: none; }
+    :root { --chat--window--width: calc(100vw - 32px); --chat--window--height: 70vh; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">TORRE DE CONTROL // TRIAJE</div>
+    <div class="status"><span class="dot"></span>AGENTE EN LÍNEA</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="tag">PROTOTIPO ACADÉMICO · DATOS SIMULADOS</div>
+    <h1>Un asistente que ordena las alertas <span>antes de que lleguen al operador</span></h1>
+    <p class="lead">
+      Agente conversacional para un centro de control de seguridad: explica cada alerta,
+      propone su criticidad y señala cuándo debe intervenir una persona.
+    </p>
+    <button class="btn" id="open-chat" type="button">ABRIR EL CHAT</button>
+    <div class="notice" id="notice">
+      El chat aún no está conectado: falta pegar la URL del Chat Trigger de n8n en la constante
+      <code>WEBHOOK_URL</code> de este archivo.
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2>Qué hace el agente</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="num">01</div>
+          <h3>Enriquece</h3>
+          <p>Agrega contexto a la alerta: tipo de evento, sede, horario y antecedentes recientes.</p>
+        </div>
+        <div class="card">
+          <div class="num">02</div>
+          <h3>Clasifica</h3>
+          <p>Propone un nivel de criticidad y explica el criterio que usó para llegar a él.</p>
+        </div>
+        <div class="card">
+          <div class="num">03</div>
+          <h3>Escala</h3>
+          <p>Deriva al supervisor humano todo caso crítico, ambiguo o fuera de su alcance.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Niveles de criticidad</h2>
+      <div class="levels">
+        <div class="lvl"><code class="c-red">P1 CRÍTICA</code><span>Riesgo para personas o intrusión confirmada. Siempre decide un humano.</span></div>
+        <div class="lvl"><code class="c-amber">P2 ALTA</code><span>Evento probable que requiere verificación inmediata por el operador.</span></div>
+        <div class="lvl"><code class="c-green">P3 BAJA</code><span>Evento técnico o probable falso positivo. Se registra y se observa.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Cómo funciona</h2>
+      <div class="flow">
+        <div class="step"><b>1 · WEB</b><span>Esta página, publicada en GitHub Pages.</span></div>
+        <div class="step"><b>2 · CHAT TRIGGER</b><span>El widget envía el mensaje al webhook de n8n.</span></div>
+        <div class="step"><b>3 · AI AGENT</b><span>Razona con un modelo de lenguaje y memoria de la conversación.</span></div>
+        <div class="step"><b>4 · RESPUESTA</b><span>Vuelve al chat con la clasificación y el siguiente paso.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Prueba con estas consultas</h2>
+      <div class="ask">
+        <button type="button">Tengo la alerta A-1042, ¿qué criticidad le corresponde?</button>
+        <button type="button">¿Qué alertas abiertas debería ver primero el supervisor?</button>
+        <button type="button">Sensor de puerta activado 3 veces en 10 minutos en un almacén cerrado. ¿Qué hago?</button>
+        <button type="button">¿Cuándo escalas un caso a una persona?</button>
+      </div>
+      <p class="hint">Al pulsar una consulta se copia al portapapeles y se abre el chat: solo pégala y envíala.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Límites y control humano</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>El agente recomienda, no decide</h3>
+          <p>No despacha unidades, no cierra alertas y no contacta a clientes. La decisión final es del operador.</p>
+        </div>
+        <div class="card">
+          <h3>Solo datos simulados</h3>
+          <p>Las alertas, sedes y códigos son ficticios. No ingreses información personal ni datos reales de operación.</p>
+        </div>
+        <div class="card">
+          <h3>Admite lo que no sabe</h3>
+          <p>Si la información no alcanza para clasificar, lo dice y pide el dato que falta en vez de inventarlo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Agentes Inteligentes para la Gestión · Maestría en IA para la Administración · UNMSM · 2026-II</p>
+    <p>Pedro Pablo Durand · Landing page con chatbot integrado en n8n · Prototipo con fines académicos.</p>
+  </div>
+</footer>
+
+<!-- Contenedor del widget -->
+<div id="n8n-chat"></div>
+
+<script type="module">
+  // ============================================================
+  // 1) PEGA AQUÍ la "Chat URL" de producción del nodo Chat Trigger
+  //    Ejemplo: https://tu-cuenta.app.n8n.cloud/webhook/xxxx-xxxx/chat
+  // ============================================================
+  const WEBHOOK_URL = 'https://ppdurand98.app.n8n.cloud/webhook/c9b7e9cf-4636-4421-9f66-37c6be845a82/chat';
+
+  const configured = WEBHOOK_URL.startsWith('https://');
+  if (!configured) document.getElementById('notice').style.display = 'block';
+
+  async function loadChat() {
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js',
+      'https://cdn.jsdelivr.net/npm/@n8n/chat/chat.bundle.es.js'
+    ];
+    for (const src of sources) {
+      try { return await import(src); } catch (e) { /* prueba la siguiente ruta */ }
+    }
+    throw new Error('No se pudo cargar el widget de chat de n8n');
+  }
+
+  if (configured) {
+    try {
+      const { createChat } = await loadChat();
+      createChat({
+        webhookUrl: WEBHOOK_URL,
+        target: '#n8n-chat',
+        mode: 'window',
+        showWelcomeScreen: false,
+        loadPreviousSession: false,
+        defaultLanguage: 'en',
+        initialMessages: [
+          'Hola. Soy el asistente de triaje de la Torre de Control (prototipo con datos simulados).',
+          'Descríbeme una alerta o dame su código, por ejemplo A-1042, y te propongo criticidad y siguiente paso.'
+        ],
+        i18n: {
+          en: {
+            title: 'Asistente de triaje',
+            subtitle: 'Clasifico alertas y te digo cuándo debe intervenir una persona.',
+            footer: '',
+            getStarted: 'Nueva conversación',
+            inputPlaceholder: 'Escribe tu consulta...'
+          }
+        }
+      });
+    } catch (err) {
+      const n = document.getElementById('notice');
+      n.textContent = 'No se pudo cargar el chat. Recarga la página o inténtalo más tarde.';
+      n.style.display = 'block';
+      console.error(err);
+    }
+  }
+
+  function openChat() {
+    const toggle = document.querySelector('.chat-window-toggle');
+    const win = document.querySelector('.chat-window');
+    const isOpen = win && win.offsetParent !== null;
+    if (toggle && !isOpen) toggle.click();
+  }
+
+  document.getElementById('open-chat').addEventListener('click', openChat);
+
+  document.querySelectorAll('.ask button').forEach((b) => {
+    b.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(b.textContent.trim()); } catch (e) { /* sin permiso de portapapeles */ }
+      openChat();
+    });
+  });
+</script>
+</body>
+</html>
